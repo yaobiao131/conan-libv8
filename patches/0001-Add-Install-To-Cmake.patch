@@ -1,0 +1,19 @@
+--- CMakeLists.txt
++++ CMakeLists.txt
+@@ -1008,3 +1008,16 @@ target_include_directories(v8-adler32
+   PUBLIC
+     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/v8/third_party/zlib>
+ )
++
++install(DIRECTORY v8/include/ DESTINATION include FILES_MATCHING PATTERN "*.h")
++install(TARGETS
++        v8_libbase
++        v8_initializers
++        v8_compiler
++        v8_snapshot
++        v8_libplatform
++        v8_inspector
++        v8_libsampler
++        v8_base_without_compiler
++        v8_torque_generated
++        DESTINATION lib)
