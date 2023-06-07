@@ -80,7 +80,6 @@ class LibV8Conan(ConanFile):
             "v8_use_siphash=false"
         ]
         if not tools.os_info.is_windows:
-            gen_arguments.append("cc_wrapper=\"ccache\"")
             gen_arguments.append(f"is_clang={is_clang}")
             gen_arguments.append("use_sysroot=false")
 
