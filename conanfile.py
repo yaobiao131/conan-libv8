@@ -5,7 +5,7 @@ from conans import ConanFile, tools
 
 class LibV8Conan(ConanFile):
     name = "libv8"
-    version = "11.5"
+    version = "11.5.151"
     # Optional metadata
     license = "BSD"
     homepage = "https://github.com/v8/v8"
@@ -26,9 +26,20 @@ class LibV8Conan(ConanFile):
         arch = str(self.settings.arch)
         return arch_map.get(arch, arch)
 
+    def _install_system_requirements_linux(self):
+        """some extra script must be executed on linux"""
+        self.output.info("Calling v8/build/install-build-deps.sh")
+        os.environ["PATH"] += os.pathsep + os.path.join(self.source_folder, "depot_tools")
+        sh_script = self.source_folder + "/v8/build/install-build-deps.sh"
+        self.run("chmod +x " + sh_script)
+        cmd = sh_script + " --unsupported --no-arm --no-nacl --no-backwards-compatible --no-chromeos-fonts --no-prompt "
+        cmd = cmd + ("--syms" if str(self.settings.build_type) == "Debug" else "--no-syms")
+        cmd = "export DEBIAN_FRONTEND=noninteractive && " + cmd
+        self.run(cmd)
+
     def build_requirements(self):
         if not tools.which("ninja"):
-            self.build_requires("ninja/1.10.0")
+            self.build_requires("ninja/1.11.1")
 
     def _set_environment_vars(self):
         """set the environment variables, such that the google tooling is found (including the bundled python2)"""
@@ -45,9 +56,9 @@ class LibV8Conan(ConanFile):
         self._set_environment_vars()
         self.run("fetch v8")
 
-        # with tools.chdir("v8"):
-        #     # self.run("git checkout {}".format(self.version))
-        #     self.run("gclient sync")
+        with tools.chdir("v8"):
+            self.run("git checkout {}".format(self.version))
+            self.run("gclient sync")
 
     def _gen_arguments(self):
         # Refer to v8/infra/mb/mb_config.pyl
@@ -58,7 +69,6 @@ class LibV8Conan(ConanFile):
             f"is_debug={is_debug}",
             f"is_component_build={is_shared}",
             "symbol_level=0",
-            # cc_wrapper="ccache"
             "treat_warnings_as_errors=false",
             "use_custom_libcxx=false",
             "v8_enable_i18n_support=false",
@@ -67,16 +77,20 @@ class LibV8Conan(ConanFile):
             "v8_enable_pointer_compression=false",
             "v8_enable_webassembly=false",
             "v8_enable_31bit_smis_on_64bit_arch=false",
-            "v8_trace_maps=false",
             "v8_use_siphash=false"
         ]
+        if not tools.os_info.is_windows:
+            gen_arguments.append("cc_wrapper=\"ccache\"")
+            gen_arguments.append(f"is_clang={is_clang}")
+            gen_arguments.append("use_sysroot=false")
 
         return gen_arguments
 
     def build(self):
         v8_source_root = os.path.join(self.source_folder, "v8")
         self._set_environment_vars()
-
+        if tools.os_info.is_linux:
+            self._install_system_requirements_linux()
         with tools.chdir(v8_source_root):
             args = self._gen_arguments()
             args_gn_file = os.path.join(self.build_folder, "args.gn")
@@ -91,14 +105,22 @@ class LibV8Conan(ConanFile):
             self.run("ninja -C {folder} v8".format(folder=self.build_folder))
 
     def package(self):
-        self.copy(pattern="v8.dll", dst="bin", keep_path=False)
-        self.copy(pattern="v8_libbase.dll", dst="bin", keep_path=False)
-        self.copy(pattern="v8_libplatform.dll", dst="bin", keep_path=False)
-        self.copy(pattern="third_party_zlib.dll", dst="bin", keep_path=False)
-        self.copy(pattern="third_party_zlib.dll.lib", dst="lib", keep_path=False)
-        self.copy(pattern="v8.dll.lib", dst="lib", keep_path=False)
-        self.copy(pattern="v8_libbase.dll.lib", dst="lib", keep_path=False)
-        self.copy(pattern="v8_libplatform.dll.lib", dst="lib", keep_path=False)
+        if self.settings.os == "Windows":
+            # dll
+            self.copy(pattern="v8.dll", dst="bin", keep_path=False)
+            self.copy(pattern="v8_libbase.dll", dst="bin", keep_path=False)
+            self.copy(pattern="v8_libplatform.dll", dst="bin", keep_path=False)
+            self.copy(pattern="third_party_zlib.dll", dst="bin", keep_path=False)
+            # lib
+            self.copy(pattern="v8.dll.lib", dst="lib", keep_path=False)
+            self.copy(pattern="v8_libbase.dll.lib", dst="lib", keep_path=False)
+            self.copy(pattern="v8_libplatform.dll.lib", dst="lib", keep_path=False)
+            self.copy(pattern="third_party_zlib.dll.lib", dst="lib", keep_path=False)
+        elif self.settings.os == "Linux":
+            self.copy(pattern="libv8.so", dst="lib", keep_path=False)
+            self.copy(pattern="libv8_libbase.so", dst="lib", keep_path=False)
+            self.copy(pattern="libv8_libplatform.so", dst="lib", keep_path=False)
+            self.copy(pattern="libchrome_zlib.so", dst="lib", keep_path=False)
         self.copy(pattern="*.h", dst="include", src="v8/include", keep_path=True)
 
     def package_info(self):

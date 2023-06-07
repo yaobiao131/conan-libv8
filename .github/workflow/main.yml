@@ -1,0 +1,31 @@
+name: Build v8 shared library
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    env:
+      CONAN_REVISIONS_ENABLED: 1
+    strategy:
+      matrix:
+        os: [ macos-latest, windows-latest, ubuntu-latest ]
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v1
+      - name: Install Dependency
+        run: pip3 install -r requirements.txt
+      - name: Setup Conan Remote
+        run: |
+          conan remote add conan https://conan.mzec.top/artifactory/api/conan/conan
+          conan user -p ${{ secrets.CONAN_SECRET }} -r conan admin
+      - name: Build Debug
+        run: conan create . _/_ --build=missing -sbuild_type=Debug -oshared=True
+      - name: Build Release
+        run: conan create . _/_ --build=missing -sbuild_type=Release -oshared=True
+      - name: Upload
+        run: conan upload libv8/* --all -r conan --retry 3 --retry-wait 10 --confirm
