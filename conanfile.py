@@ -115,11 +115,16 @@ class LibV8Conan(ConanFile):
             self.copy(pattern="v8_libbase.dll.lib", dst="lib", keep_path=False)
             self.copy(pattern="v8_libplatform.dll.lib", dst="lib", keep_path=False)
             self.copy(pattern="third_party_zlib.dll.lib", dst="lib", keep_path=False)
-        elif self.settings.os == "Linux":
+        if self.settings.os == "Linux":
             self.copy(pattern="libv8.so", dst="lib", keep_path=False)
             self.copy(pattern="libv8_libbase.so", dst="lib", keep_path=False)
             self.copy(pattern="libv8_libplatform.so", dst="lib", keep_path=False)
             self.copy(pattern="libchrome_zlib.so", dst="lib", keep_path=False)
+        if self.settings.os == "Macos":
+            self.copy(pattern="libv8.dylib", dst="lib", keep_path=False)
+            self.copy(pattern="libv8_libbase.dylib", dst="lib", keep_path=False)
+            self.copy(pattern="libv8_libplatform.dylib", dst="lib", keep_path=False)
+            self.copy(pattern="libchrome_zlib.dylib", dst="lib", keep_path=False)
         self.copy(pattern="*.h", dst="include", src="v8/include", keep_path=True)
 
     def package_info(self):
